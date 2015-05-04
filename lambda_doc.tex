@@ -1,0 +1,580 @@
+\documentclass[a4paper,final,8pt]{article}
+
+\usepackage[landscape,twocolumn,top=1in, bottom=.5in, left=.8in, right=.8in]{geometry}
+
+% Language and encoding
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+%\usepackage[protrusion=true,expansion=true]{microtype} % better typography
+
+% Math
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage{mathabx}
+
+\newtheorem{thm}{Theorem}[section]
+\newtheorem{defn}{Definition}[section]
+
+\newcommand{\bbN}{\mathbb N} %the natural numbers
+\newcommand{\bbZ}{\mathbb Z} %the integers
+\newcommand{\bbQ}{\mathbb Q} %the rational numbers
+\newcommand{\bbR}{\mathbb R} %the real numbers
+\newcommand{\bbC}{\mathbb C} %the complex numbers
+
+% Graphic stuff
+\usepackage[pdftex]{graphicx}
+\usepackage[usenames,dvipsnames,table]{xcolor}
+\definecolor{shade}{RGB}{245,245,245}
+\usepackage[pdftex,colorlinks=true]{hyperref}
+\hypersetup
+{
+    bookmarksnumbered,
+    linkcolor=RoyalBlue,
+    anchorcolor=RoyalBlue,
+    citecolor=RoyalBlue,
+    urlcolor=RoyalBlue,
+    pdfstartview={FitV},
+    pdfdisplaydoctitle
+}
+
+% Tables
+\usepackage{booktabs}
+\usepackage[hang,small,bf]{caption}
+
+% Debug, etc.
+\usepackage{todonotes}
+
+\pagestyle{myheadings}
+\markright{University of Copenhagen}
+
+% Computer science stuff
+\usepackage{verbatim}
+\newcommand{\mono}[1]{{\ttfamily#1}}
+\usepackage{listings}
+\lstset
+{
+    tabsize=2,
+    numbers=left,
+    breaklines=true,
+    backgroundcolor=\color{shade},
+    framexleftmargin=0.05in,
+    basicstyle=\ttfamily\small,
+    numberstyle=\tiny,
+    keywordstyle=\color{RoyalBlue},
+    stringstyle=\color{Maroon},
+    commentstyle=\color{ForestGreen},
+    language=C++
+}
+
+
+\title{Team Reference \\ University of Copenhagen}
+\author{Lambdabamserne}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+\section{Fenwick Tree}
+
+\textbf{Note:} The arrays are 1-indexed!
+
+\begin{lstlisting}
+const int MAX_N = 200;
+int N;
+
+int phi(int n){ return n & -n; }
+
+int arr[MAX_N+1]; //arr[k] = x[k-phi(k)+1] + ... + x[k]
+
+int get(int k) { //returns x[1] + x[2] + x[3] + .. + x[k]
+    return k <= 0 ? 0 : arr[k] + get(k-phi(k));
+}
+
+void add(int k, int c) { // x[k] += c
+    if(k > N) return;
+    arr[k] += c;
+    add(k+phi(k), c);
+}
+\end{lstlisting}
+
+With loops instead:
+
+\begin{lstlisting}
+const int MAX_N = 200;
+int N;
+
+int phi(int n){ return n & -n; }
+
+int arr[MAX_N+1]; //arr[k] = x[k-phi(k)+1] + ... + x[k]
+
+int get(int k) { //returns x[1] + x[2] + x[3] + .. + x[k]
+    int sum = 0;
+    for(int i = k;i > 0;i -= phi(i)) sum += arr[i];
+    return sum;
+}
+
+void add(int k, int c) { // x[k] += c
+    for(int i = k;i <= N;i += phi(i)) arr[i] += c;
+}
+\end{lstlisting}
+
+
+Two dimensional:
+
+\begin{lstlisting}
+const int MAX_N = 50;
+int N;
+
+int phi(int n){ return n & -n; }
+
+//arr[k][l] = sum x[i][j] hvor k-phi(k) < i <= k, l-phi(l) < j <= l
+int arr[MAX_N+1][MAX_N+1];
+
+int get(int k, int l) { //returns sum x[i][j], hvor i <= k,j <= l
+    int sum = 0;
+    for(int i = k;i > 0;i -= phi(i))
+    for(int j = l;j > 0;j -= phi(j))
+    sum += arr[i][j];
+    return sum;
+}
+
+void add(int k, int l, int c) { // x[k] += c
+    for(int i = k;i <= N;i += phi(i))
+    for(int j = l;j <= N;j += phi(j))
+    arr[i][j] += c;
+}
+\end{lstlisting}
+
+
+\section{Treap}
+
+Following is example treap code solving the movie task from nwerc 2011 (iirc).
+
+% MAKE SURE treap.cpp IS WORKING CODE OR WE WILL BE FUCKED AT THE CONTEST!
+\lstinputlisting{src/treap.cpp}
+
+\section{Hungarian Algorithm}
+
+Hungarian algorithm solution for SPOJ 286. Should be easy to fit to another
+problem. More info in comments of code.
+
+\lstinputlisting{src/hungarian.cpp}
+
+\section{Suffix Array}
+
+\begin{lstlisting}
+// Begins Suffix Arrays implementation
+// O(n log n) - Manber and Myers algorithm
+// Refer to "Suffix arrays: A new method for on-line string searches",
+// by Udi Manber and Gene Myers
+
+//Usage:
+// Fill str with the characters of the string.
+// Call SuffixSort(n), where n is the length of the string stored in str.
+// That's it!
+
+//Output:
+// pos = The suffix array. Contains the n suffixes of str sorted in lexicographical order.
+// Each suffix is represented as a single integer (the position of str where it starts).
+// rank = The inverse of the suffix array. rank[i] = the index of the suffix str[i..n)
+//      in the pos array. (In other words, pos[i] = k <==> rank[k] = i)
+//      With this array, you can compare two suffixes in O(1): Suffix str[i..n) is smaller
+//      than str[j..n) if and only if rank[i] < rank[j]
+
+int str[N]; //input
+int rank[N], pos[N]; //output
+int cnt[N], next[N]; //internal
+bool bh[N], b2h[N];
+
+// Compares two suffixes according to their first characters
+bool smaller_first_char(int a, int b){
+    return str[a] < str[b];
+}
+
+void suffixSort(int n){
+    //sort suffixes according to their first characters
+    for (int i=0; i<n; ++i){
+        pos[i] = i;
+    }
+    sort(pos, pos + n, smaller_first_char);
+    //{pos contains the list of suffixes sorted by their first character}
+
+    for (int i=0; i<n; ++i){
+        bh[i] = i == 0 || str[pos[i]] != str[pos[i-1]];
+        b2h[i] = false;
+    }
+
+    for (int h = 1; h < n; h <<= 1){
+    //{bh[i] == false if the first h characters of pos[i-1] == the first h characters of pos[i]}
+        int buckets = 0;
+        for (int i=0, j; i < n; i = j){
+            j = i + 1;
+            while (j < n && !bh[j]) j++;
+            next[i] = j;
+            buckets++;
+        }
+        if (buckets == n) break; // We are done! Lucky bastards!
+        //{suffixes are separted in buckets containing strings starting with the same h characters}
+
+        for (int i = 0; i < n; i = next[i]){
+            cnt[i] = 0;
+            for (int j = i; j < next[i]; ++j){
+                rank[pos[j]] = i;
+            }
+        }
+
+        cnt[rank[n - h]]++;
+        b2h[rank[n - h]] = true;
+        for (int i = 0; i < n; i = next[i]){
+            for (int j = i; j < next[i]; ++j){
+                int s = pos[j] - h;
+                if (s >= 0){
+                    int head = rank[s];
+                    rank[s] = head + cnt[head]++;
+                    b2h[rank[s]] = true;
+                }
+            }
+            for (int j = i; j < next[i]; ++j){
+                int s = pos[j] - h;
+                if (s >= 0 && b2h[rank[s]]){
+                    for (int k = rank[s]+1; !bh[k] && b2h[k]; k++) b2h[k] = false;
+                }
+            }
+        }
+        for (int i=0; i<n; ++i){
+            pos[rank[i]] = i;
+            bh[i] |= b2h[i];
+        }
+    }
+    for (int i=0; i<n; ++i){
+        rank[pos[i]] = i;
+    }
+}
+// End of suffix array algorithm
+
+// Begin of the O(n) longest common prefix algorithm
+// Refer to "Linear-Time Longest-Common-Prefix Computation in Suffix
+// Arrays and Its Applications" by Toru Kasai, Gunho Lee, Hiroki
+// Arimura, Setsuo Arikawa, and Kunsoo Park.
+int height[N];
+// height[i] = length of the longest common prefix of suffix pos[i] and suffix pos[i-1]
+// height[0] = 0
+void getHeight(int n){
+    for (int i=0; i<n; ++i) rank[pos[i]] = i;
+    height[0] = 0;
+    for (int i=0, h=0; i<n; ++i){
+        if (rank[i] > 0){
+            int j = pos[rank[i]-1];
+            while (i + h < n && j + h < n && str[i+h] == str[j+h]) h++;
+            height[rank[i]] = h;
+            if (h > 0) h--;
+        }
+    }
+}
+// End of longest common prefixes algorithm
+\end{lstlisting}
+
+
+\section{Z algorithm}
+
+Given a string $S$, produces an array $Z$, where $Z[i]$ is the length of the
+longest substring starting at $S[i]$, that is also a prefix of $S$.
+
+\begin{lstlisting}
+int L = 0, R = 0;
+for (int i = 1; i < n; i++) {
+    if (i > R) {
+        L = R = i;
+        while (R < n && s[R-L] == s[R]) R++;
+        z[i] = R-L; R--;
+    } else {
+        int k = i-L;
+        if (z[k] < R-i+1) z[i] = z[k];
+        else {
+            L = i;
+            while (R < n && s[R-L] == s[R]) R++;
+            z[i] = R-L; R--;
+        }
+    }
+}
+\end{lstlisting}
+
+
+\section{Maximum Flow}
+
+\lstinputlisting{src/dinic.cpp}
+
+\section{Minimum cost flow}
+
+Min Cost flow solution for codeforces 277E.
+
+\lstinputlisting{src/mincost.cpp}
+
+\section{Bridge Finding}
+
+\begin{lstlisting}
+bool M[128][128]; // adjacency matrix
+int colour[128]; // 0 is white, 1 is gray and 2 is black
+int dfsNum[128], num; // DFS numbers
+int n; // the number of vertices
+// returns the smallest DFS number that has a back edge pointing to it
+// in the DFS subtree rooted at u
+int dfs( int u, int p ) {
+    colour[u] = 1;
+    dfsNum[u] = num++;
+    int leastAncestor = num;
+    for( int v = 0; v < n; v++ ) if( M[u][v] && v != p ) {
+        if( colour[v] == 0 ) {
+            // (u,v) is a forward edge
+            int rec = dfs( v, u );
+            if( rec > dfsNum[u] )
+                cout << "Bridge: " << u << " " << v << endl;
+            leastAncestor = min( leastAncestor, rec );
+        } else {
+            // (u,v) is a back edge
+            leastAncestor = min( leastAncestor, dfsNum[v] );
+        }
+    }
+    colour[u] = 2;
+    return leastAncestor;
+}
+
+int main() {
+    // ... fill up M[][] with an adjacency matrix
+    // ... set n to be the number of vertices
+    for( int i = 0; i < n; i++ ) colour[i] = 0;
+    num = 0;
+    dfs( 0, -1 );
+}
+\end{lstlisting}
+
+
+\section{Sweepline}
+
+I believe this is a sweep line that finds the two closest points in the plane.
+
+\begin{lstlisting}
+#include <stdio.h>
+#include <set>
+#include <algorithm>
+#include <cmath>
+
+using namespace std;
+
+#define px second
+#define py first
+
+typedef pair<long long, long long> pairll;
+int n;
+pairll pnts [100000];
+set<pairll> box;
+double best;
+
+int compx(pairll a, pairll b) { return a.px<b.px; }
+
+int main () {
+    scanf("%d", &n);
+    for (int i=0;i<n;++i)
+        scanf("%lld %lld", &pnts[i].px, &pnts[i].py);
+
+    sort(pnts, pnts+n, compx);
+    best = 1500000000; // INF
+    box.insert(pnts[0]);
+    int left = 0;
+
+    for (int i=1;i<n;++i)
+    {
+        while (left<i && pnts[i].px-pnts[left].px > best)
+            box.erase(pnts[left++]);
+
+        for (set<pairll>::iterator it=box.lower_bound(make_pair(pnts[i].py-best, pnts[i].px-best));
+                it !=box.end() && pnts[i].py+best>=it->py;
+                it++)
+            best = min(best, sqrt(pow(pnts[i].py - it->py, 2.0)+pow(pnts[i].px - it->px, 2.0)));
+        box.insert(pnts[i]);
+    }
+    printf("%.2f\n", best);
+    return 0;
+}
+\end{lstlisting}
+
+
+\section{Topological Sorting}
+
+I have not tested this!
+
+\lstinputlisting{src/top_sort.cpp}
+
+
+\section{Minimum Spanning Tree}
+
+Prim's algorithm: $O(m\lg n)$. This uses a set instead of a priority queue,
+so it is $O(n)$ space, but probably a little slower. Don't think it matters
+too much. I don't think it works with negative edges.
+
+\lstinputlisting{src/prim_mst.cpp}
+
+
+\section{LCA}
+
+This is the very simple $\langle N\lg N, \lg N\rangle$ solution, so each
+query is $O(\lg N)$, which should be enough for most problems.
+I have not tested it very thoroughly.
+
+\lstinputlisting{src/log_lca.cpp}
+
+
+\section{RMQ}
+Lav det med et segment tree eller et treap eller lignende. Det er nemmest.
+Ellers kan man gøre det i $O(1)$ med LCA, men har ikke $O(1)$ LCA algoritmen
+her, da jeg ikke kunne finde en god implementation.
+
+
+\section{Floyd-Warshall}
+
+\begin{lstlisting}
+for (int k = 0; k < n; ++k)
+    for (int i = 0; i < n; ++i)
+        for (int j = 0; j < n; ++j)
+            dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j]);
+\end{lstlisting}
+
+\section{2SAT}
+
+\lstinputlisting{src/2sat.cpp}
+
+\section{Tarjan's strongly-connected-components}
+
+\lstinputlisting{src/tarjan.cpp}
+
+\section{Geometry}
+
+\input{geometri}
+
+\section{Union-Find}
+
+\lstinputlisting{src/dsu.cpp}
+
+\section{Segment Tree}
+Mathias' kode. Han ved hvordan den fungerer.
+
+\lstinputlisting{src/segtree.cpp}
+
+\section{Knuth-Morris-Pratt}
+
+Stjålet fra Stanford.
+
+\lstinputlisting{src/kmp.cpp}
+
+\section{Diverse talteori}
+
+\lstinputlisting{src/number_theory.cpp}
+
+\section{Gauss Jordan}
+
+\lstinputlisting{src/gauss_jordan.cpp}
+
+\section{Delaunay}
+
+\lstinputlisting{src/delaunay.cpp}
+
+\section{Maximum bipartite matching}
+
+\lstinputlisting{src/max_match.cpp}
+
+\section{Minimum cost matching}
+
+\lstinputlisting{src/min_cost_match.cpp}
+
+\section{Dijkstra template}
+
+\begin{lstlisting}
+#define NUMV 1 // the maximum number of vertices
+#define INF ~(1 << 31)
+
+struct Node {
+    Node (int index_, int length_) : index(index_), length(length_) {}
+    int index, length;
+    inline bool operator<(const Node& o) const {
+        return length > o.length;
+    }
+};
+
+int best[NUMV];
+vector<Node> adj[NUMV];
+
+// best[i] = keeps track of the best(shortest) distance from "start" to "i"
+void djikstra(int start) {
+    memset(best, INF, sizeof(int)*NUMV); // initialize to infinity
+    best[start] = 0;
+    priority_queue<Node> pq;
+    pq.push(Node(start, 0));
+    while (!pq.empty()) {
+        Node curr = pq.top();
+        pq.pop();
+        if (curr.length > best[curr.index]) // if it's worse than what you already have, continue
+            continue;
+
+        // go throught the adjacency list
+        for (vector<Node>::iterator it = adj[curr.index].begin(); it != adj[curr.index].end(); it++) {
+            if (curr.length + it->length < best[it->index]) { // update if necessary
+                best[it->index] = curr.length + it->length;
+                pq.push(Node(it->index, best[it->index]));
+            }
+        }
+    }
+}
+\end{lstlisting}
+
+To add an edge $(v,u)$ you should call \texttt{adj[v].push\_back(u)} and
+\texttt{adj[u].push\_back(v)}, where \texttt{u} and \texttt{v} are the ids of
+those nodes.
+
+\section{Graph Theorems}
+
+\begin{itemize}
+\item En graf med $\Omega(n^{1 + 1/k})$ kanter maa indeholde en kreds af laengde hoejst $2k$, for ethvert positivt heltal $k$.
+
+\item En graf er bipartit hvis og kun hvis alle dens kredse er af lige laengde.
+
+\item Size(min vertex cover) = Size(max matching) i en bipartit graf.
+
+\item I enhver graf $G$ findes en bipartit delgraf indeholdende mindst halvdelen af kanterne fra $G$.
+
+\item En graf med $n$ knuder, der ikke indeholder en clique af størrelse $r+1$ kan højest indeholde $((r-1)/r)(n^2/2)$ kanter.
+
+\item Antallet af knuder med ulige valens er lige.
+
+\item Every graph of order $n\ge 6$ and size at least $3n - 5$ contains two disjoint cycles.
+
+\item Every graph of order $n\ge 5$ and size at least $n + 4$ contains two edge-disjoint cycles.
+
+\item A planar graph cannot contain $K_5$ or $K_{3,3}$.
+\end{itemize}
+
+\section{Diverse theorems}
+On a simple polygon constructed on a grid of equal-distanced points, for area
+$A$, number of interior points $I$, number of boundary points $B$, we have
+$A=I+B/2-1$.
+
+\section{Summaries of selected algorithms}
+\begin{description}
+    \item [Fenwick Tree] Can be used to increase/decrease specific array
+        indices and sum concecutive cells in $O(\log n)$.
+    \item [Z algorithm] String algorithm, which can be used for various things.
+    \item [Topological sort] Sorts vertices of a directed acyclic graph such
+        that for each edge $(v,u)$ we have $v$ before $u$ in the ordering.
+    \item [LCA] Given a tree $T$, computes a data structure such that we can
+        find the nearest common ancestor of any two nodes in $O(\log n)$ time.
+    \item [Geometry] A point $(x,y)$ is represented by a complex number $x +
+        yi$, and is instantiated by \texttt{com(x,y)}.
+    \item [Talteori] Misc useful functions such as \texttt{gcd} and
+        \texttt{lcm}.
+    \item [Maximum bipartite matching] Finds the maximum matching in a
+        bipartite graph. Useful in problems where things has to be assigned
+        with unit cost.
+\end{description}
+
+\end{document}
